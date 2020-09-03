@@ -11,19 +11,30 @@ def di_search(path:dict, find:str):
         for i in path:
             return di_search(di_space(path,i),find)
     return di_space(path,find)
-        
-def di_get(path:dict,find:str,var:str,name = 'None'):
+
+def di_get(path:dict,find:str,var:str,name = 'None',flag = True):
     """Функция для вывода области видимости введенного 
     обьекта по заданной области видимости."""      
     if find not in path:
-        name = str(di_space(dict(path),var) if var in path else name)
         for i in path:
-            return di_get(di_space(path,i),find,var,name)
-    name = di_space(path,var) if var in path else name
-    name = di_space(di_space(path,find),var) if var in di_space(path,find) else name
-    return name
-        
-            
+            if type(path[i])==type({}):
+                di_get(path[i],find,var,name,False)
+                if name == 'None':
+                    name = path[var] if var in path else name
+                    name = path[i][var] if var in path[i] else name
+                    if name!='None':
+                        return name
+                if flag == True and name == 'None':
+                    name = path[var] if var in path else name
+                    name = path[i][var] if var in path[i] else name
+                    return name
+    else: 
+        if flag == True and name == 'None':
+            name = path[var] if var in path else name
+            name = path[find][var] if var in path[find] else name
+            if name!='None':
+                return name
+
 
 def res_di():
     """ Функция для определения области видимости обьектов,
@@ -45,9 +56,9 @@ def res_di():
         if func == 'add':
             di_search(di_name,nasp).update({var_name:nasp})
         if func == 'get':
-            print(di_get(di_name,nasp,var_name,'None'))
+            print(di_get(di_name['global'],nasp,var_name,'None'))
     return di_name
-        
+
 
 
 
