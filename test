@@ -1,46 +1,37 @@
-def di_space(x:dict,namespace:str):
-    """Функция возвращает значение по заданному 
-    ключу из словаря. Для поиска необходимого namespace."""
-    return x[namespace]
-
 def di_search(path:dict, find:str):
     """ Поиск области видимости в общей структуре словарей 
     состовляющих области видимости именных полей. 
     Поиск в глубину (DFS)."""
     if find not in path:
         for i in path:
-            return di_search(di_space(path,i),find)
-    return di_space(path,find)
-
-def di_get(path:dict,find:str,var:str,name = 'None',flag = True):
+            if type(path[i])==type({}):
+                return di_search(path[i],find)
+            else:
+                continue
+    return path[find]
+        
+def di_get(path:dict,find:str,var:str,name = 'None'):
     """Функция для вывода области видимости введенного 
     обьекта по заданной области видимости."""      
     if find not in path:
         for i in path:
             if type(path[i])==type({}):
-                di_get(path[i],find,var,name,False)
-                if name == 'None':
-                    name = path[var] if var in path else name
-                    name = path[i][var] if var in path[i] else name
-                    if name!='None':
-                        return name
-                if flag == True and name == 'None':
-                    name = path[var] if var in path else name
-                    name = path[i][var] if var in path[i] else name
-                    return name
-    else: 
-        if flag == True and name == 'None':
-            name = path[var] if var in path else name
-            name = path[find][var] if var in path[find] else name
-            if name!='None':
-                return name
-
-
+                di_get(path[i],find,var,name)
+            else:
+                continue
+    if var in path:
+        name = path[var]
+    elif var in di_search(path,find):
+        name =  path[find][var]
+    return name
+        
+            
+  
 def res_di():
     """ Функция для определения области видимости обьектов,
  На вход поступает кол-во операций и операции обособленные
  вводом строки с клавиатуры.
- create - создание новой области видимости - var_nae внутри 
+ create - создание новой области видимости - var_name внутри 
  namespace - nasp.
  add - обьявление обьекта - var_name в заданной области 
  видимости nasp.
@@ -59,8 +50,4 @@ def res_di():
             print(di_get(di_name['global'],nasp,var_name,'None'))
     return di_name
 
-
-
-
-
-a = res_di()
+res_di()
