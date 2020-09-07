@@ -16,7 +16,7 @@ def di_get(path:dict,find:str,var:str,name = 'None'):
     if find not in path:
         for i in path:
             if type(path[i])==type({}):
-                di_get(path[i],find,var,name)
+                return di_get(path[i],find,var,name)
             else:
                 continue
     if var in path:
@@ -47,7 +47,7 @@ def res_di():
         if func == 'add':
             di_search(di_name,nasp).update({var_name:nasp})
         if func == 'get':
-            print(di_get(di_name['global'],nasp,var_name,'None'))
+            print(di_get(di_name,nasp,var_name,'None'))
     return di_name
 
 res_di()
