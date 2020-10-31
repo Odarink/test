@@ -1,0 +1,173 @@
+from pyballistics import ozvb_termo, get_options_agard, get_options_sample, ozvb_lagrange
+import numpy as np
+import timeit
+#Zsl_methoda =((init_data['init_conditions']['q']*result_data['v_p'][-1]**2)**5)/2/(init_data['powders'][0]['omega']*(result_data['x_p'][-1]+result_data['x_p'][0])**4)
+       
+
+def OZVB(init_data = get_options_sample(), model_setting = 'НМ',limit_borders = None,out_arg = 'Wкн'):
+    """Функция выполняющая расчет основной задачи внутренней
+    баллистики артиллерийского орудия.
+    
+    init_data - входные параметры расчета системы: характеристики
+    орудия и снаряда (калибр, масса боеприпаса, обьем камеры 
+    заряжания, тип орудия(гладкоствольное, нарезное), давление
+    форсирования, температура в стволе в начале расчета и т.д.), 
+    характеристики заряда пороха и воспламенителя(масса и 
+    наименование марки и т. д.), допущения системы (учет 
+    теплоотдачи в стенки ствола, учет давления столба воздуха 
+    и т.д.), параметры остановки расчета (конец ствола, 
+    превышение макс скорости, давления и т.д.), параметры для 
+    расчета математической модели (нульмерной и квазиодномерной)).
+    Тип данных - dict (пример в библиотеке pyballistics)
+    
+    model_setting - задание типа математической модели расчета:
+    (нульмерная/квазиодномерная). Тип данных строка 'НМ' или 'КМ'.
+    
+    limit_borders - ограничения накладываемы на расчет задачи:
+    максимальное давление, длина ствола, давление дульное и т.д.
+    Тип данных - dict: {'p_dul':_,'n_max':_,'v_dul':_,'etta_k':_,
+    'psi_dul':_}.
+    Максимальное дульное давление. Максимальное ускорение снаряда 
+    во время расчета. Минимальная дульная скорость снаряда. 
+    Максимальное значение конца горения пороха. Минимальная масса 
+    сгоревшего свода пороха.
+    
+    out_arg - возвращаемый аргумент, критерий оценки оптимальности
+    варианта решения задачи. Тип данных - строка: 'Zсл' или 'Wкн'.
+    """
+
+        
+    if model_setting == 'НМ':
+        result_data = ozvb_termo(init_data)
+        if out_arg == 'Zсл':
+            l0 = init_data['init_conditions']['W_0']/(np.pi/4*init_data['init_conditions']['d']**2)
+            ld = (result_data['x_p'][-1])
+            kal = init_data['init_conditions']['d']
+            omega = init_data['powders'][0]['omega']
+            q = init_data['init_conditions']['q']
+            output_arg = (((ld+l0)/l0)**0.5)/(((ld+l0)/kal)**4*(omega/q)**(3/2))*10**6
+
+        elif out_arg == 'Wкн':
+            W0 = init_data['init_conditions']['W_0']
+            output_arg = (result_data['x_p'][-1])*np.pi/4*init_data['init_conditions']['d']**2+init_data['init_conditions']['W_0']
+        if limit_borders!=None:
+            for i in limit_borders:
+                if i == 'p_dul':
+                    # Максимальное дульное давление
+                    output_arg = None if limit_borders['p_dul'] < result_data['p_m'][-1] else output_arg
+                if i == 'n_max':
+                    # Максимальное ускорение снаряда во время расчета
+                    dv = (np.roll(result_data['v_p'],-1)-result_data['v_p'])[:-1]
+                    dt = (np.roll(result_data['t'],-1)-result_data['t'])[:-1]
+                    da = dv/dt
+                    print(max(da))
+                    output_arg = None if limit_borders['n_max'] < max(da) else output_arg
+                if i == 'v_dul':
+                    # Минимальная дульная скорость снаряда
+                    output_arg = None if limit_borders['v_dul'] > result_data['v_p'][-1] else output_arg
+                if i =='etta_k':
+                    # Максимальное значение конца горения пороха
+                    etta_ind = np.argmax(result_data['z_1'])
+                    etta_x = result_data['x_p'][etta_ind]
+                    output_arg = None if limit_borders['etta_k'] < etta_x/result_data['x_p'][-1]  else output_arg
+                if i == 'psi_dul':
+                    # Минимальная масса сгоревшего свода пороха
+                    output_arg = None if limit_borders['psi_dul'] > result_data['psi_1'][-1]  else output_arg      
+        return output_arg
+    elif model_setting == 'КМ':
+        result2 = ozvb_lagrange(init_data)
+        result_data = {}
+        time_lagrange = []
+        p_dno_langrange = []
+        p_sn_langrange = []
+        v_p_langrange = []
+        x_p_langrange = []
+        z_1_langrange = []
+        psi_1_langrange = []
+        for i in range(len(result2["layers"])):
+            time_lagrange.append(result2['layers'][i]['t'])
+            v_p_langrange.append(result2['layers'][i]['u'][-1])
+            x_p_langrange.append(result2['layers'][i]['x'][-1])
+            p_sn_langrange.append(result2['layers'][i]['p'][-1])
+            p_dno_langrange.append(result2['layers'][i]['p'][0])
+            var_z_1 = True if result2['layers'][i]['z_1'][0] == result2['layers'][i-1]['z_1'][0] else False
+            z_1_langrange.append(var_z_1)
+            var_psi_1 = True if result2['layers'][i]['psi_1'][0] == result2['layers'][i-1]['psi_1'][0] else False
+            psi_1_langrange.append(var_psi_1)    
+        result_data.update({'t':time_lagrange,'x_p':x_p_langrange,'v_p':v_p_langrange,
+                          'p_dno':p_dno_langrange,'p_sn':p_sn_langrange,'z_1':z_1_langrange,'psi_1':psi_1_langrange})
+        if out_arg == 'Zсл':
+            l0 = init_data['init_conditions']['W_0']/(np.pi/4*init_data['init_conditions']['d']**2)
+            ld = (result_data['x_p'][-1])
+            kal = init_data['init_conditions']['d']
+            omega = init_data['powders'][0]['omega']
+            q = init_data['init_conditions']['q']
+            output_arg = (((ld+l0)/l0)**0.5)/(((ld+l0)/kal)**4*(omega/q)**(3/2))*10**6
+        elif out_arg == 'Wкн':
+            W0 = init_data['init_conditions']['W_0']
+            output_arg = (result_data['x_p'][-1])*np.pi/4*init_data['init_conditions']['d']**2+init_data['init_conditions']['W_0']
+        if limit_borders!=None:
+            for i in limit_borders:
+                if i == 'p_dul':
+                    # Максимальное дульное давление
+                    output_arg = None if limit_borders['p_dul'] < result_data['p_sn'][-1] else output_arg
+                if i == 'n_max':
+                    # Максимальное ускорение снаряда во время расчета
+                    dv = (np.roll(result_data['v_p'],-1)-result_data['v_p'])[:-1]
+                    dt = (np.roll(result_data['t'],-1)-result_data['t'])[:-1]
+                    da = dv/dt
+                    print(max(da))
+                    output_arg = None if limit_borders['n_max'] < max(da) else output_arg
+                if i == 'v_dul':
+                    # Минимальная дульная скорость снаряда
+                    output_arg = None if limit_borders['v_dul'] > result_data['v_p'][-1] else output_arg
+                if i =='etta_k':
+                    # Максимальное значение конца горения пороха
+                    etta_ind = np.argmax(result_data['z_1'])
+                    etta_x = result_data['x_p'][etta_ind]
+                    output_arg = None if limit_borders['etta_k'] < etta_x/result_data['x_p'][-1]  else output_arg
+                if i == 'psi_dul':
+                    # Минимальная масса сгоревшего свода пороха
+                    output_arg = None if limit_borders['psi_dul'] > result_data['psi_1'][-1]  else output_arg      
+        return output_arg
+    
+def inverse_OZVB(start_AS,init_values,Omega,ro):
+    ''''''
+    
+    a = timeit.default_timer()
+    start_var = start_AS
+    X,Y = np.meshgrid(ro,Omega)
+    Z = np.zeros((len(ro),len(Omega)))
+    for i in range(len(ro)):
+        for j in range(len(Omega)):
+            start_var['init_conditions']['W_0'] = Omega[j]/ro[i]
+            start_var['powders'][0]['omega'] = Omega[j]
+            Z[i][j] = OZVB(init_data=start_var,out_arg=init_values['output'], \
+                           model_setting=init_values['model'],limit_borders = init_values['limitless20']) 
+            print(Z[i][j])
+    print("время работы=",timeit.default_timer()-a,"\n") 
+
+
+opts_my = {'powders': [{'omega': 18, 'dbname': 'НДТ-3 23/1'}],
+ 'init_conditions': {'q': 100,
+  'd': 0.2032,
+  'W_0': 0.03,
+  'phi_1': 1.05,
+  'p_0': 30000000.0,
+  'T_0' : 293.15,
+  'n_S' : 1.04},
+ 'igniter': {'p_ign_0': 1000000.0},      
+ 'meta_termo': {'dt': 5e-06, 'method': 'rk2'},
+ 'meta_lagrange': {'CFL': 0.9, 'n_cells': 150},
+ 'stop_conditions': {'v_p': 650, 'p_max': 350000000.0, 'x_p': 6.096},
+ 'windage': {'shock_wave' : False},
+ 'heat': {'enabled' : False}}
+
+init_vals = {'model':'КМ','limitless_50':None,'limitless20':None,'limitless50':None,'output':'Zсл'}
+Omega = np.linspace(14,18,20)
+ro = np.linspace(550,800,20)
+print('results_oneshot_OZVB\n')
+OZVB(init_data=opts_my,out_arg='Wкн', model_setting='НМ',limit_borders = {'p_dul':150*10**6,'n_max':100000})
+print('\n')
+print('results_inverse_OZVB\n')
+Result_data = inverse_OZVB(start_AS=opts_my,init_values=init_vals,Omega=Omega,ro=ro) 
