@@ -1,6 +1,8 @@
 from pyballistics import ozvb_termo, get_options_agard, get_options_sample, ozvb_lagrange
 import numpy as np
 import timeit
+import copy
+
 #Zsl_methoda =((init_data['init_conditions']['q']*result_data['v_p'][-1]**2)**5)/2/(init_data['powders'][0]['omega']*(result_data['x_p'][-1]+result_data['x_p'][0])**4)
        
 
@@ -24,9 +26,8 @@ def OZVB(init_data = get_options_sample(), model_setting = 'НМ',limit_borders 
     (нульмерная/квазиодномерная). Тип данных строка 'НМ' или 'КМ'.
     
     limit_borders - ограничения накладываемы на расчет задачи:
-    максимальное давление, длина ствола, давление дульное и т.д.
-    Тип данных - dict: {'p_dul':_,'n_max':_,'v_dul':_,'etta_k':_,
-    'psi_dul':_}.
+    давление дульное и т.д. Тип данных - dict: 
+    {'p_dul':_,'n_max':_,'v_dul':_,'etta_k':_,'psi_dul':_}.
     Максимальное дульное давление. Максимальное ускорение снаряда 
     во время расчета. Минимальная дульная скорость снаряда. 
     Максимальное значение конца горения пороха. Минимальная масса 
@@ -34,6 +35,8 @@ def OZVB(init_data = get_options_sample(), model_setting = 'НМ',limit_borders 
     
     out_arg - возвращаемый аргумент, критерий оценки оптимальности
     варианта решения задачи. Тип данных - строка: 'Zсл' или 'Wкн'.
+    Так же возвращаются результаты проверки ограничений и 
+    добавляются в словарь выходных параметров.
     """
 
         
@@ -46,33 +49,34 @@ def OZVB(init_data = get_options_sample(), model_setting = 'НМ',limit_borders 
             omega = init_data['powders'][0]['omega']
             q = init_data['init_conditions']['q']
             output_arg = (((ld+l0)/l0)**0.5)/(((ld+l0)/kal)**4*(omega/q)**(3/2))*10**6
-
+            output_arg = {'output_arg':output_arg}
         elif out_arg == 'Wкн':
             W0 = init_data['init_conditions']['W_0']
             output_arg = (result_data['x_p'][-1])*np.pi/4*init_data['init_conditions']['d']**2+init_data['init_conditions']['W_0']
+            output_arg = {'output_arg':output_arg}
         if limit_borders!=None:
             for i in limit_borders:
                 if i == 'p_dul':
                     # Максимальное дульное давление
-                    output_arg = None if limit_borders['p_dul'] < result_data['p_m'][-1] else output_arg
+                    i = {'p_dul':result_data['p_m'][-1]}
                 if i == 'n_max':
                     # Максимальное ускорение снаряда во время расчета
                     dv = (np.roll(result_data['v_p'],-1)-result_data['v_p'])[:-1]
                     dt = (np.roll(result_data['t'],-1)-result_data['t'])[:-1]
                     da = dv/dt
-                    print(max(da))
-                    output_arg = None if limit_borders['n_max'] < max(da) else output_arg
+                    i = {'n_max':max(da)}
                 if i == 'v_dul':
                     # Минимальная дульная скорость снаряда
-                    output_arg = None if limit_borders['v_dul'] > result_data['v_p'][-1] else output_arg
+                    i = {'v_dul':result_data['v_p'][-1]}
                 if i =='etta_k':
                     # Максимальное значение конца горения пороха
                     etta_ind = np.argmax(result_data['z_1'])
                     etta_x = result_data['x_p'][etta_ind]
-                    output_arg = None if limit_borders['etta_k'] < etta_x/result_data['x_p'][-1]  else output_arg
+                    i = {'etta_k':etta_x/result_data['x_p'][-1]}
                 if i == 'psi_dul':
                     # Минимальная масса сгоревшего свода пороха
-                    output_arg = None if limit_borders['psi_dul'] > result_data['psi_1'][-1]  else output_arg      
+                    i = {'psi_dul':result_data['psi_1'][-1]}
+                output_arg.update(i)
         return output_arg
     elif model_setting == 'КМ':
         result2 = ozvb_lagrange(init_data)
@@ -103,49 +107,133 @@ def OZVB(init_data = get_options_sample(), model_setting = 'НМ',limit_borders 
             omega = init_data['powders'][0]['omega']
             q = init_data['init_conditions']['q']
             output_arg = (((ld+l0)/l0)**0.5)/(((ld+l0)/kal)**4*(omega/q)**(3/2))*10**6
+            output_arg = {'output_arg':output_arg}
         elif out_arg == 'Wкн':
             W0 = init_data['init_conditions']['W_0']
             output_arg = (result_data['x_p'][-1])*np.pi/4*init_data['init_conditions']['d']**2+init_data['init_conditions']['W_0']
+            output_arg = {'output_arg':output_arg}
         if limit_borders!=None:
             for i in limit_borders:
                 if i == 'p_dul':
                     # Максимальное дульное давление
-                    output_arg = None if limit_borders['p_dul'] < result_data['p_sn'][-1] else output_arg
+                    i = {'p_dul':result_data['p_sn'][-1]}
                 if i == 'n_max':
                     # Максимальное ускорение снаряда во время расчета
                     dv = (np.roll(result_data['v_p'],-1)-result_data['v_p'])[:-1]
                     dt = (np.roll(result_data['t'],-1)-result_data['t'])[:-1]
                     da = dv/dt
-                    print(max(da))
-                    output_arg = None if limit_borders['n_max'] < max(da) else output_arg
+                    i = {'n_max':max(da)}
                 if i == 'v_dul':
                     # Минимальная дульная скорость снаряда
-                    output_arg = None if limit_borders['v_dul'] > result_data['v_p'][-1] else output_arg
+                    i = {'v_dul':result_data['v_p'][-1]}
+                    print(result_data['v_p'][-1])
                 if i =='etta_k':
                     # Максимальное значение конца горения пороха
                     etta_ind = np.argmax(result_data['z_1'])
                     etta_x = result_data['x_p'][etta_ind]
-                    output_arg = None if limit_borders['etta_k'] < etta_x/result_data['x_p'][-1]  else output_arg
+                    i = {'etta_k':etta_x/result_data['x_p'][-1]}
                 if i == 'psi_dul':
                     # Минимальная масса сгоревшего свода пороха
-                    output_arg = None if limit_borders['psi_dul'] > result_data['psi_1'][-1]  else output_arg      
+                    i = {'psi_dul':result_data['psi_1'][-1]} 
+                output_arg.update(i)
         return output_arg
-    
+
+def Lim_dict(direction,base_mass):
+    direction_out = {}
+    if direction == None:
+        return None
+    for i in direction:
+            direction_out.update({i:copy.deepcopy(base_mass)})  
+    return direction_out
+
 def inverse_OZVB(start_AS,init_values,Omega,ro):
-    ''''''
+    '''Функция обратной задачи внутренней баллистики, решаемая 
+    посредством выполнения расчета прямой задачи внутренней 
+    баллистики.
+    
+    start_AS - входные параметры расчета системы: характеристики
+    орудия и снаряда (калибр, масса боеприпаса, обьем камеры 
+    заряжания, тип орудия(гладкоствольное, нарезное), давление
+    форсирования, температура в стволе в начале расчета и т.д.), 
+    характеристики заряда пороха и воспламенителя(масса и 
+    наименование марки и т. д.), допущения системы (учет 
+    теплоотдачи в стенки ствола, учет давления столба воздуха 
+    и т.д.), параметры остановки расчета (конец ствола, 
+    превышение макс скорости, давления и т.д.), параметры для 
+    расчета математической модели (нульмерной и квазиодномерной)).
+    Тип данных - dict (пример в библиотеке pyballistics)
+    
+    init_values - тип расчетной модели (нульмерная/квазиодномерная). 
+    Тип данных строка 'НМ' или 'КМ', возвращаемый аргумент, критерий 
+    оценки оптимальности варианта решения задачи. Тип данных - 
+    строка: 'Zсл' или 'Wкн', а также ограничения накладываемы на 
+    расчет задачи: Максимальное дульное давление. Максимальное 
+    ускорение снаряда во время расчета. Минимальная дульная скорость 
+    снаряда. Максимальное значение конца горения пороха. Минимальная 
+    масса сгоревшего свода пороха.
+    
+    Omega - массив с диапазоном масс снаряженного пороха.
+    
+    ro - массив с диапазоном плотности заряжания снаряженного 
+    пороха.
+    
+    Выходным аргументом является словарь с массивами
+    данных типа numpy.ndarray: 'Z' и 'limitless20' - результаты 
+    расчета критерия и ограничейни при стандартных условиях Т_0 = 
+    293.15 К, 'Z50' и 'limitless50' - результаты расчета критерия 
+    и ограничений при Т_0 = 293.15+30 К, 'Z_50' и 'limitless_50' -
+    результаты расчета критерия и ограничения при Т_0 = 
+    293.15-70 К. 
+    '''
     
     a = timeit.default_timer()
-    start_var = start_AS
+    start_var = copy.deepcopy(start_AS)
+    start_var_50 = copy.deepcopy(start_AS)
+    start_var_50['init_conditions']['T_0'] = start_var_50['init_conditions']['T_0']-70
+    start_var50 = copy.deepcopy(start_AS)
+    start_var50['init_conditions']['T_0'] = start_var50['init_conditions']['T_0']+30
     X,Y = np.meshgrid(ro,Omega)
     Z = np.zeros((len(ro),len(Omega)))
+    Z_50 = None
+    Z50 = None
+    if init_values['limitless_50']!=None:
+        Z_50 = copy.deepcopy(Z)
+    if init_values['limitless50']!=None:
+        Z50 = copy.deepcopy(Z)
+    
+    limitless_dict20 = Lim_dict(init_values['limitless20'],np.zeros((len(ro),len(Omega)))) 
+    limitless_dict_50 = Lim_dict(init_values['limitless_50'],np.zeros((len(ro),len(Omega)))) 
+    limitless_dict50 = Lim_dict(init_values['limitless50'],np.zeros((len(ro),len(Omega)))) 
     for i in range(len(ro)):
         for j in range(len(Omega)):
             start_var['init_conditions']['W_0'] = Omega[j]/ro[i]
             start_var['powders'][0]['omega'] = Omega[j]
-            Z[i][j] = OZVB(init_data=start_var,out_arg=init_values['output'], \
-                           model_setting=init_values['model'],limit_borders = init_values['limitless20']) 
-            print(Z[i][j])
+            Res_OZVB = OZVB(init_data=start_var,out_arg=init_values['output'], \
+                           model_setting=init_values['model'],limit_borders = init_values['limitless20'])
+            Z[i][j] = Res_OZVB['output_arg']
+            for k in limitless_dict20:
+                limitless_dict20[k][i][j] = Res_OZVB[k] 
+            if init_values['limitless_50']!=None:
+                start_var_50['init_conditions']['W_0'] = Omega[j]/ro[i]
+                start_var_50['powders'][0]['omega'] = Omega[j]
+                Res_OZVB = OZVB(init_data=start_var_50,out_arg=init_values['output'], \
+                           model_setting=init_values['model'],limit_borders = init_values['limitless_50'])
+                Z_50[i][j] = Res_OZVB['output_arg']
+                for k in limitless_dict_50:
+                    limitless_dict_50[k][i][j] = Res_OZVB[k]
+                    
+            if init_values['limitless50']!=None:
+                start_var50['init_conditions']['W_0'] = Omega[j]/ro[i]
+                start_var50['powders'][0]['omega'] = Omega[j]
+                Res_OZVB = OZVB(init_data=start_var50,out_arg=init_values['output'], \
+                           model_setting=init_values['model'],limit_borders = init_values['limitless50'])   
+                Z50[i][j] = Res_OZVB['output_arg']
+                for k in limitless_dict50:
+                    limitless_dict50[k][i][j] = Res_OZVB[k]
     print("время работы=",timeit.default_timer()-a,"\n") 
+    return {'Z':Z,'Z_50':Z_50,'Z50':Z50,'limitless20':limitless_dict20,'limitless50':limitless_dict50,'limitless_50':limitless_dict_50,}
+
+
 
 
 opts_my = {'powders': [{'omega': 18, 'dbname': 'НДТ-3 23/1'}],
@@ -171,3 +259,28 @@ OZVB(init_data=opts_my,out_arg='Wкн', model_setting='НМ',limit_borders = {'p
 print('\n')
 print('results_inverse_OZVB\n')
 Result_data = inverse_OZVB(start_AS=opts_my,init_values=init_vals,Omega=Omega,ro=ro) 
+
+opts_my = {'powders': [{'omega': 18, 'dbname': 'НДТ-3 23/1'}],
+ 'init_conditions': {'q': 100,
+  'd': 0.2032,
+  'W_0': 0.024,
+  'phi_1': 1.05,
+  'p_0': 30000000.0,
+  'T_0' : 293.15,
+  'n_S' : 1.04},
+ 'igniter': {'p_ign_0': 1000000.0},      
+           
+ 'meta_termo': {'dt': 5e-06, 'method': 'rk2'},
+ 'meta_lagrange': {'CFL': 0.9, 'n_cells': 150},
+ 'stop_conditions': {'v_p': 650, 'p_max': 350000000.0, 'x_p': 6.096},
+ 'windage': {'shock_wave' : False},
+ 'heat': {'enabled' : False}}
+
+init_vals = {'model':'КМ','limitless_50':None,'limitless20':{'n_max':85000,'p_dul':150*10**6},'limitless50':{'n_max':85000},'output':'Zсл'}
+#Omega = np.linspace(14,18,21)
+#ro = np.linspace(651,800,150)
+OMQ = np.arange(0.14,0.18,0.002)
+Omega = OMQ*100
+ro = np.arange(550,800,1)
+Result_data = inverse_OZVB(start_AS=opts_my,init_values=init_vals,Omega=Omega,ro=ro) 
+print(Result_data)
