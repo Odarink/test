@@ -324,3 +324,25 @@ def Main_OZVB(initial_data,result_inverse):
     for i in lims:
         Vis_data = result_inverse['Z']*i
     return Vis_data
+
+opts_my = {'powders': [{'omega': 18, 'dbname': 'НДТ-3 23/1'}],
+ 'init_conditions': {'q': 100,
+  'd': 0.2032,
+  'W_0': 0.03,
+  'phi_1': 1.05,
+  'p_0': 30000000.0,
+  'T_0' : 293.15,
+  'n_S' : 1.04},
+ 'igniter': {'p_ign_0': 1000000.0},      
+           
+ 'meta_termo': {'dt': 5e-06, 'method': 'rk2'},
+ 'meta_lagrange': {'CFL': 0.9, 'n_cells': 150},
+ 'stop_conditions': {'v_p': 650, 'p_max': 350000000.0, 'x_p': 6.096},
+ 'windage': {'shock_wave' : False},
+ 'heat': {'enabled' : False}}
+
+init_vals = {'model':'КМ','limitless_50':None,'limitless20':{'n_max':85000,'p_dul':150*10**6,'v_dul':640},'limitless50':{'n_max':85000},'output':'Zсл'}
+Omega = np.linspace(14,18,4)
+ro = np.linspace(550,800,4)
+Result_data = inverse_OZVB(start_AS=opts_my,init_values=init_vals,Omega=Omega,ro=ro) 
+print(Main_OZVB(init_vals,Result))
