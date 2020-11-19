@@ -449,8 +449,7 @@ def printing_results(fpr):
     plt.legend()
     plt.grid() 
     plt.show()
-    
-    opts_my = {'powders': [{'omega': 18, 'dbname': 'НДТ-3 23/1'}],
+opts_my = {'powders': [{'omega': 18, 'dbname': 'НДТ-3 23/1'}],
  'init_conditions': {'q': 100,
   'd': 0.2032,
   'W_0': 0.03,
