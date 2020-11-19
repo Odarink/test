@@ -3,7 +3,6 @@ import numpy as np
 import timeit
 import copy
 import matplotlib.pyplot as plt
-import pandas as pd
 
 def OZVB(init_data = get_options_sample(), model_setting = 'НМ',limit_borders = None,out_arg = 'Wкн'):
     """Функция выполняющая расчет основной задачи внутренней
@@ -328,8 +327,130 @@ def Main_OZVB(initial_data,result_inverse):
         for j in i:
             Vis_data = Vis_data*j
     return {'Result':Vis_data,'ro':result_inverse['ro'],'Omega':result_inverse['Omega']}
+
+def Vis_OZVB(main_data):
+    '''Функция выполняет структурирование данных из
+    двумерного массива в одномерные с отбрасыванием
+    точек с нулевыми значениями функции. На вход
+    попадется выходной словарь из Main_OZVB, 
+    который обрабатывается и в виде словаря 
+    возвращает значения функции и ее координаты.'''
     
-opts_my = {'powders': [{'omega': 18, 'dbname': 'НДТ-3 23/1'}],
+    Visual_Z = copy.deepcopy(main_data['Result'])
+    Visual_ro = copy.deepcopy(np.transpose(main_data['ro']))
+    Visual_Om = copy.deepcopy(np.transpose(main_data['Omega']))
+    Z = []
+    x_ro = []
+    y_om = []
+    for i in range(len(Visual_Z)):
+        for j in range(len(Visual_Z[i])):
+            if Visual_Z[i][j]!=0:
+                Z.append(float('{:.4f}'.format(Visual_Z[i][j])))
+                x_ro.append(Visual_ro[i][j])
+                y_om.append(Visual_Om[i][j])
+            else:
+                continue    
+            
+    return {'Z':Z,'x_ro':x_ro,'y_om':y_om}
+    
+def gradient_func(Z,KRIT):
+    '''Функция разбивает на подгруппы данные массива
+    ориентируясь на максимальное значения и 
+    разграничивая  (90%, 80%, 60%) данные. На выход
+    подается массив с значениями уровня элемента 
+    массива в зависимости от соответствие границам.
+    0 - ниже 60%, 1 - больше 90%, 2 - больше 80%, но 
+    ниже 90%, 3 - больше 60%, но ниже 80%.'''
+    if KRIT == 'Zсл':
+        main_obj = np.max(Z)
+        first_lim = 0.9*main_obj
+        sec_lim = 0.8*main_obj
+        thr_lim = 0.6*main_obj
+        pos_Z = np.zeros(len(Z))
+        for i in range(len(Z)):
+            if Z[i]>first_lim:
+                pos_Z[i] = 1
+                continue
+            if Z[i]>sec_lim:
+                pos_Z[i] = 2
+                continue
+            if Z[i]>thr_lim:
+                pos_Z[i] = 3
+                continue
+        return pos_Z
+    if KRIT == 'Wкн':
+        main_obj = np.min(Z)
+        first_lim = 1.1*main_obj
+        sec_lim = 1.2*main_obj
+        thr_lim = 1.3*main_obj
+        pos_Z = np.zeros(len(Z))
+        for i in range(len(Z)):
+            if Z[i]<first_lim:
+                pos_Z[i] = 1
+                continue
+            if Z[i]<sec_lim:
+                pos_Z[i] = 2
+                continue
+            if Z[i]<thr_lim:
+                pos_Z[i] = 3
+                continue
+        return pos_Z
+
+def levels_sort(d_ball,point_sorter,KRIT):
+    '''Функция разбиения значений по уровню для
+    построения топографической диаграммы решения
+    основной задачи внутренней баллисти с поиском
+    оптимального решения обратной задачи.'''
+    levels = {'x1':[],'x2':[],'x3':[],'x4':[],\
+             'y1':[],'y2':[],'y3':[],'y4':[],'xm':0,'ym':0,'zm':0}
+    if KRIT == 'Zсл':
+        indm = np.argmax(d_ball['Z'])
+        levels['zm'] = d_ball['Z'][indm]
+        levels['xm'] =d_ball['x_ro'][indm]
+        levels['ym'] =d_ball['y_om'][indm]
+    if KRIT == 'Wкн':
+        indm = np.argmin(d_ball['Z'])
+        levels['zm'] = d_ball['Z'][indm]
+        levels['xm'] =d_ball['x_ro'][indm]
+        levels['ym'] =d_ball['y_om'][indm]
+    for i in range(len(point_sorter)):
+        if point_sorter[i]==0:
+            #0-60%, 130+%
+            levels['x1'].append(d_ball['x_ro'][i])
+            levels['y1'].append(d_ball['y_om'][i])
+            continue
+        if point_sorter[i]==3:
+            #60-80%, 110-120%
+            levels['x2'].append(d_ball['x_ro'][i])
+            levels['y2'].append(d_ball['y_om'][i])           
+            continue    
+        if point_sorter[i]==2:
+            #80-90%, 120-130%
+            levels['x3'].append(d_ball['x_ro'][i])
+            levels['y3'].append(d_ball['y_om'][i])           
+            continue 
+        if point_sorter[i]==1:
+            #90-100%, 100-110%
+            levels['x4'].append(d_ball['x_ro'][i])
+            levels['y4'].append(d_ball['y_om'][i]) 
+            continue 
+    return levels
+def printing_results(fpr):
+    '''Функция построения графика.'''
+    hub = 30
+    plt.figure(figsize=(11, 6))
+    plt.scatter(fpr['x1'], fpr['y1'], s=hub, color='green', marker='o',label='Отклонение больше 40% от оптимума')
+    plt.scatter(fpr['x2'], fpr['y2'], s=hub, color='yellow', marker='o',label='Отклонение 30% от оптимума')
+    plt.scatter(fpr['x3'], fpr['y3'], s=hub, color='orange', marker='o',label='Отклонение 20% от оптимума')
+    plt.scatter(fpr['x4'], fpr['y4'], s=hub, color='red', marker='o',label='Отклонение 10% от оптимума')
+    plt.scatter(fpr['xm'], fpr['ym'], s=hub*10,color='black', marker = '*',label='Оптимальный вариант')
+    plt.ylabel('$ρ, кг/м^3$')
+    plt.xlabel('ω, кг')
+    plt.legend()
+    plt.grid() 
+    plt.show()
+    
+    opts_my = {'powders': [{'omega': 18, 'dbname': 'НДТ-3 23/1'}],
  'init_conditions': {'q': 100,
   'd': 0.2032,
   'W_0': 0.03,
@@ -345,38 +466,24 @@ opts_my = {'powders': [{'omega': 18, 'dbname': 'НДТ-3 23/1'}],
  'windage': {'shock_wave' : False},
  'heat': {'enabled' : False}}
 
-init_vals = {'model':'КМ','limitless_50':None,'limitless20':{'n_max':85000,'p_dul':150*10**6,'v_dul':645},\
-             'limitless50':{'n_max':85000},'output':'Zсл'}
+init_vals = {'model':'КМ','limitless_50':None,'limitless20':{'n_max':100000,'v_dul':645},\
+             'limitless50':{'p_dul':150*10**6},'output':'Zсл'}
 
-Omega = np.linspace(17,22,5)
-ro = np.linspace(400,650,5)
+
+
+# Реальные данные для работы программы
+Omega_q = np.arange(0.17,0.24,0.002)
+Omega = Omega_q*opts_my['init_conditions']['q']
+ro = np.arange(550,650,1)
+
+# Тестовые данные для работы программы
+# Omega = np.linspace(17,23,10)
+# ro = np.linspace(500,850,10)
 
 Result_data = inverse_OZVB(start_AS=opts_my,init_values=init_vals,Omega=Omega,ro=ro) 
-asssa =Main_OZVB(init_vals,Result_data)
-df = pd.DataFrame(asssa['Result'], index = ro, columns = Omega)
-%matplotlib notebook
-
-Visual_Z = copy.deepcopy(asssa['Result'])
-Visual_ro = copy.deepcopy(asssa['ro'])
-Visual_Om = copy.deepcopy(asssa['Omega'])
-Z = []
-x_ro = []
-y_om = []
-for i in range(len(Visual_Z)):
-    for j in range(len(Visual_Z[i])):
-        if Visual_Z[i][j]!=0:
-            Z.append(Visual_Z[i][j])
-            x_ro.append(Visual_ro[i][j])
-            y_om.append(Visual_Om[i][j])
-        else:
-            continue          
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-
-ax.scatter(x_ro, y_om, Z, c='r', marker='o')
-
-ax.set_xlabel('X Label')
-ax.set_ylabel('Y Label')
-ax.set_zlabel('Z Label')
-
-plt.show()
+asssa = Main_OZVB(init_vals,Result_data)
+Gr_Res = Vis_OZVB(asssa)
+apachi = gradient_func(Gr_Res['Z'],KRIT = init_vals['output'])
+alllevels = levels_sort(d_ball=Gr_Res,point_sorter=apachi,KRIT = init_vals['output'])
+print('Оптимальный вариант: ',init_vals['output'],': ',alllevels['zm'],', ρ: ',alllevels['xm'],', ω: ',alllevels['ym'])
+printing_results(alllevels)  
