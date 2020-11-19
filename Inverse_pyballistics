@@ -471,13 +471,13 @@ init_vals = {'model':'КМ','limitless_50':None,'limitless20':{'n_max':100000,'v
 
 
 # Реальные данные для работы программы
-Omega_q = np.arange(0.17,0.24,0.002)
-Omega = Omega_q*opts_my['init_conditions']['q']
-ro = np.arange(550,650,1)
+#Omega_q = np.arange(0.17,0.24,0.002)
+#Omega = Omega_q*opts_my['init_conditions']['q']
+#ro = np.arange(550,650,1)
 
 # Тестовые данные для работы программы
-# Omega = np.linspace(17,23,10)
-# ro = np.linspace(500,850,10)
+Omega = np.linspace(17,23,10)
+ro = np.linspace(500,850,10)
 
 Result_data = inverse_OZVB(start_AS=opts_my,init_values=init_vals,Omega=Omega,ro=ro) 
 asssa = Main_OZVB(init_vals,Result_data)
