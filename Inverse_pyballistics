@@ -453,3 +453,41 @@ def printing_results(fpr,q):
     plt.legend()
     plt.grid() 
     plt.show()
+
+opts_my = {'powders': [{'omega': None, 'dbname': 'МАП-1 23/1'}],
+ 'init_conditions': {'q': 5.5,
+  'd': 0.115,
+  'W_0': None,
+  'phi_1': 1.03,
+  'p_0': 30000000.0,
+  'T_0' : 293.15,
+  'n_S' : 1.04},
+ 'igniter': {'p_ign_0': 1000000.0},      
+           
+ 'meta_termo': {'dt': 5e-06, 'method': 'rk2'},
+ 'meta_lagrange': {'CFL': 0.9, 'n_cells': 150},
+ 'stop_conditions': {'v_p': 1600, 'p_max': 400000000.0, 'x_p': 8.06},
+ 'windage': {'shock_wave' : False},
+ 'heat': {'enabled' : False}}
+
+init_vals = {'model':'НМ','limitless_50':{'p_dul':110*10**6,},'limitless20':{'v_dul':1555,},\
+             'limitless50':{'psi_dul':0.97,},'output':'Zсл'}
+
+
+
+# Реальные данные для работы программы
+Omega_q = np.arange(1.18,1.30,0.002)
+Omega = Omega_q*opts_my['init_conditions']['q']
+ro = np.arange(625,900,1)
+
+# Тестовые данные для работы программы для того чтобы
+Omega = np.linspace(4.5,12,50)
+ro = np.linspace(300,1000,50)
+
+Result_data = inverse_OZVB(start_AS=opts_my,init_values=init_vals,Omega=Omega,ro=ro)
+asssa = Main_OZVB(init_vals,Result_data) 
+Gr_Res = Vis_OZVB(asssa)
+apachi = gradient_func(Gr_Res['Z'],KRIT = init_vals['output'])
+alllevels = levels_sort(d_ball=Gr_Res,point_sorter=apachi,KRIT = init_vals['output'])
+print('Оптимальный вариант: ',init_vals['output'],': ',alllevels['zm'],', ρ: ',alllevels['xm'],', ω: ',alllevels['ym'],'(',alllevels['ym']/opts_my['init_conditions']['q'],')')
+printing_results(alllevels,q = opts_my['init_conditions']['q'])  
