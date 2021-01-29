@@ -55,7 +55,7 @@ def brdr_write(lime,sult_data,init):
         lime = {'p_dul':sult_data['p_m'][-1]}
     if lime == 'n_max':
         # Максимальное ускорение снаряда во время расчета
-        da = np.array(sult_data['p_sn'])*(pi*init['init_conditions']\
+        da = np.array(sult_data['p_sn'])*(np.pi*init['init_conditions']\
                                ['d']**2/4)/init['init_conditions']['q']/9.80665
         lime = {'n_max':max(da)}
     if lime == 'v_dul':
@@ -214,6 +214,7 @@ def inverse_OZVB(start_AS,init_values,Omega,ro):
     start_var50 = copy.deepcopy(start_AS)
     start_var50['init_conditions']['T_0'] = start_var50['init_conditions']['T_0']+30
     start_var50['stop_conditions']['p_max']=start_var50['stop_conditions']['p_max']*2
+    start_var50['stop_conditions']['v_p']=start_var50['stop_conditions']['v_p']*2
     X,Y = np.meshgrid(ro,Omega)
     Z = np.zeros((len(ro),len(Omega)))
     Z_50 = None
@@ -235,6 +236,7 @@ def inverse_OZVB(start_AS,init_values,Omega,ro):
             Z[i][j] = Res_OZVB['output_arg']
             lime_ld = Res_OZVB['limeline']
             start_var_50['stop_conditions']['x_p']=lime_ld
+            start_var50['stop_conditions']['x_p']=lime_ld
             for k in limitless_dict20:
                 limitless_dict20[k][i][j] = Res_OZVB[k] 
             if init_values['limitless_50']!=None:
@@ -451,40 +453,3 @@ def printing_results(fpr,q):
     plt.legend()
     plt.grid() 
     plt.show()
-    
-    opts_my = {'powders': [{'omega': None, 'dbname': 'МАП-1 23/1'}],
- 'init_conditions': {'q': 5.5,
-  'd': 0.115,
-  'W_0': None,
-  'phi_1': 1.03,
-  'p_0': 30000000.0,
-  'T_0' : 293.15,
-  'n_S' : 1.04},
- 'igniter': {'p_ign_0': 1000000.0},      
-           
- 'meta_termo': {'dt': 5e-06, 'method': 'rk2'},
- 'meta_lagrange': {'CFL': 0.9, 'n_cells': 150},
- 'stop_conditions': {'v_p': 1600, 'p_max': 400000000.0, 'x_p': 8.06},
- 'windage': {'shock_wave' : False},
- 'heat': {'enabled' : False}}
-
-init_vals = {'model':'НМ','limitless_50':{'p_dul':110*10**6,},'limitless20':{'v_dul':1555,},\
-             'limitless50':{'psi_dul':0.97,},'output':'Zсл'}
-
-# Реальные данные для работы программы
-Omega_q = np.arange(1.18,1.30,0.002)
-Omega = Omega_q*opts_my['init_conditions']['q']
-ro = np.arange(625,900,1)
-
-# Тестовые данные для работы программы для того чтобы
-Omega = np.linspace(4.5,12,50)
-ro = np.linspace(300,1000,50)
-
-Result_data = inverse_OZVB(start_AS=opts_my,init_values=init_vals,Omega=Omega,ro=ro) 
-asssa = Main_OZVB(init_vals,Result_data)
-
-Gr_Res = Vis_OZVB(asssa)
-apachi = gradient_func(Gr_Res['Z'],KRIT = init_vals['output'])
-alllevels = levels_sort(d_ball=Gr_Res,point_sorter=apachi,KRIT = init_vals['output'])
-print('Оптимальный вариант: ',init_vals['output'],': ',alllevels['zm'],', ρ: ',alllevels['xm'],', ω: ',alllevels['ym'],'(',alllevels['ym']/opts_my['init_conditions']['q'],')')
-printing_results(alllevels,q = opts_my['init_conditions']['q'])  
